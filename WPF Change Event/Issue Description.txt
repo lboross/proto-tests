@@ -1,0 +1,52 @@
+
+VSTO Add-in: Workbook.SheetChange event handler stops working after WPF Window is Activated for a second time, or GotFocus.
+
+
+I have a VSTO Excel add-in, where I want to capture changes in the worksheet using the Workbook.SheetChange event handler.
+My Add-in opens WPF windows via Ribbon buttons to interact with the user and perform functions on the worksheet. I find that after opening the WPF window, my SheetChange event handler no longer fires.
+
+I have created a simple test add-in to evaluate the different use-cases and have narrowed down the issue to something to do with the WPF window. 
+Specifically, when the window is Activated a second time, or when the GotFocus event gets triggered.
+
+The issue also occurs whether the new window (WPF or Form) is run from the Main thread or from a background thread ( STA vs MT )
+
+When I run the same tests against a Windows Form window, the issue does not present itself and the SheetChange event fires correctly.
+
+
+The test add-in is described below.
+
+
+
+Working use-case
+
+	1. Start with a blank workbook
+	2. Click 'Set Book Handle', Click OK on the MessageBox
+	3. Change the value of a cell in the sheet
+	4. You should see cell A1 update with Event: 1, The counter is to keep record of how many times the event fired
+	5. Now Click 'Show STA Form'
+	6. Test A - Will update 5 cells on the sheet, so the counter should increase by 5
+	7. Text B - Will update a single cell, the counter should increase by 1 each time it is clicked
+	8. Close the Form, change another cell value in the sheet, the counter should increase by 1
+	9. Repeat the test, but click 'Show MT Form'
+	10. You should notice that the SheetChange event is fired consistently each time a cell is updated.
+
+
+Failed use-case
+
+	1. Start with a blank workbook
+	2. Click 'Set Book Handle', Click OK on the MessageBox
+	3. Change the value of a cell in the sheet
+	4. You should see cell A1 update with Event: 1, The counter is to keep record of how many times the event fired
+	5. Now Click 'Show STA WPF Window'
+	6. When the window loads, ACTIVATED shows 0
+		a. Note: If the window is moved at this point, the event does not fire, even without clicking any buttons.
+		b. Note: The test also fails if the user click in the window ( blank area between two buttons for example)
+	7. Click Test A - This will update 5 cells on the sheet, so the counter should increase by 5. Which is the case.
+	8. Click Test B - This will update a single cell, the counter should increase by 1 each time it is clicked. This does not occur! Notice the status now shows FOCUS 0
+	9. After this point, the SheetChange event no longer fires
+	10. This test can be repeated with the 'Show STA WPF Dialog' and 'Show MT WPF Window'
+
+
+Interesting Discovery
+	1. Once the SheetChange event no longer fires after running the above tests, if I re-register the SheetChange event by clicking Set Book Handle again. The above tests now pass and I am not able to re-produce the original issue using the WPF Windows.
+	2. The 'Work Around' button attempts to 'break' the event then re-register it, in an attempt to work around the issue.
